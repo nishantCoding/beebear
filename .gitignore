@@ -25,6 +25,7 @@ coverage/
 
 # Claude Code
 CLAUDE.md
+github-issue-draft.md
 
 # Debug logs
 .pnpm-debug.log
