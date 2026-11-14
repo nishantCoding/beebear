@@ -23,5 +23,8 @@ Thumbs.db
 # Test coverage
 coverage/
 
-# pnpm
+# Claude Code
+CLAUDE.md
+
+# Debug logs
 .pnpm-debug.log
