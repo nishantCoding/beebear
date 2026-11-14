@@ -1,0 +1,39 @@
+{
+  "name": "beebear",
+  "version": "0.0.1",
+  "description": "Hexagonal Architecture Framework for Node.js/TypeScript",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "devDependencies": {
+    "tsup": "^8.5.0"
+  },
+  "keywords": [
+    "hexagonal-architecture",
+    "ports-and-adapters",
+    "dependency-injection",
+    "clean-architecture",
+    "typescript",
+    "framework"
+  ]
+}
