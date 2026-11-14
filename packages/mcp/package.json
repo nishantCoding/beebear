@@ -1,0 +1,57 @@
+{
+  "name": "@beebear/mcp",
+  "version": "0.1.0",
+  "description": "MCP server for AI coding assistants — teaches beebear patterns and scaffolds idiomatic code",
+  "license": "MIT",
+  "author": "nishantCoding",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "beebear-mcp": "./dist/index.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nishantCoding/beebear.git",
+    "directory": "packages/mcp"
+  },
+  "homepage": "https://github.com/nishantCoding/beebear",
+  "bugs": {
+    "url": "https://github.com/nishantCoding/beebear/issues"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "tsup": "^8.5.0"
+  },
+  "keywords": [
+    "beebear",
+    "hexagonal-architecture",
+    "mcp",
+    "model-context-protocol",
+    "ai-coding-assistant",
+    "claude",
+    "cursor",
+    "copilot"
+  ]
+}
