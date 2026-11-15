@@ -1,4 +1,4 @@
-# Spec: `@beebear/mcp` — MCP Server for AI Coding Assistants
+# Spec: `@beebear-plugins/mcp` — MCP Server for AI Coding Assistants
 
 ## The Problem
 
@@ -31,7 +31,7 @@ how to write idiomatic beebear code.
   "mcpServers": {
     "beebear": {
       "command": "npx",
-      "args": ["-y", "@beebear/mcp"]
+      "args": ["-y", "@beebear-plugins/mcp"]
     }
   }
 }
@@ -50,7 +50,7 @@ What beebear is, what it provides, what it doesn't. Core concepts:
 hexagonal architecture, ports, adapters, use cases, DI container.
 
 Content covers:
-- Framework philosophy (lightweight, decorator-free, zero runtime deps)
+- Framework philosophy (lightweight, decorator-free by default, zero runtime deps)
 - The hexagonal architecture model (domain inside, infra outside)
 - Core building blocks: Port<T>, UseCase, Container, createHexApp
 - What beebear handles vs what the developer handles
@@ -121,6 +121,23 @@ HTTP framework integration:
 - Method-based defaults: POST→201, DELETE→204, else→200
 - Custom FrameworkStrategy for niche frameworks
 - How httpAdapter calls hex.execute() internally (hooks fire automatically)
+
+### `beebear://docs/decorators`
+
+Optional decorator-based DI via `@beebear-plugins/di-decorators`:
+
+- When to use: teams that prefer decorator style (NestJS/tsyringe background)
+- Install: `npm install @beebear-plugins/di-decorators`
+- tsconfig: only `experimentalDecorators: true` — no `reflect-metadata`, no `emitDecoratorMetadata`
+- `@Injectable(token, options?)` — registers a class for auto-binding
+- `@Inject(token)` — marks constructor parameter dependencies
+- `withDecorators(container)` — reads registry, auto-binds, returns `DecoratorContainer`
+- `DecoratorContainer` — resolve/has/validate/createScope (no `bind`)
+- Mutual exclusivity: factory bindings and decorator bindings don't mix in one container
+- Lifecycle options: singleton (default), transient, scoped
+- `clearRegistry()` — for testing, prevents registration leakage
+- Error cases: missing token, missing @Inject, duplicate tokens, circular deps
+- Full example: ports → decorated classes → withDecorators → createHexApp
 
 ---
 
@@ -303,6 +320,52 @@ container.bind(RegisterUser, (c) => new RegisterUserService(
 ));
 
 container.validate();
+```
+
+### `scaffold_decorator_setup`
+
+Generate decorator-based DI setup using `@beebear-plugins/di-decorators`.
+
+**Input:**
+```ts
+{
+  implementations: Array<{
+    token: string;           // e.g. "UserRepository"
+    className: string;       // e.g. "PrismaUserRepository"
+    dependencies?: string[]; // e.g. ["UserRepository"] — tokens to @Inject
+    lifecycle?: "singleton" | "transient" | "scoped";
+  }>;
+}
+```
+
+**Output:**
+```ts
+import { Port, createContainer, createHexApp } from 'beebear';
+import { Injectable, Inject, withDecorators } from '@beebear-plugins/di-decorators';
+import type { UserRepository } from './domain/ports/outbound/UserRepository.js';
+import type { RegisterUser } from './domain/ports/inbound/RegisterUser.js';
+
+@Injectable(UserRepository)
+class PrismaUserRepository implements UserRepository {
+  // TODO: implement methods
+}
+
+@Injectable(RegisterUser)
+class RegisterUserService implements RegisterUser {
+  constructor(
+    @Inject(UserRepository) private readonly userRepository: UserRepository,
+  ) {}
+
+  async execute(input: { email: string; name: string }) {
+    // TODO: implement business logic
+    throw new Error('Not implemented');
+  }
+}
+
+const container = withDecorators(createContainer());
+container.validate();
+
+const hex = createHexApp({ container });
 ```
 
 ---
