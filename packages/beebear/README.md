@@ -369,9 +369,9 @@ src/
 
 ## Upcoming Plugins
 
-- `@beebear/decorators` — Optional decorator-based DI for teams that prefer decorators
-- `@beebear/ddd` — Entity, ValueObject, AggregateRoot, DomainEvent
-- `@beebear/testing` — Test container, adapter overrides, helpers
+- `@beebear-plugins/di-decorators` — Optional decorator-based DI for teams that prefer decorators
+- `@beebear-plugins/ddd` — Entity, ValueObject, AggregateRoot, DomainEvent
+- `@beebear-plugins/testing` — Test container, adapter overrides, helpers
 - `@beebear/mcp` — MCP server for AI coding assistants
 
 ## License

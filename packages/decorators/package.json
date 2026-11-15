@@ -1,0 +1,53 @@
+{
+  "name": "@beebear-plugins/di-decorators",
+  "version": "0.1.0",
+  "description": "Optional decorator-based DI for beebear — @Injectable and @Inject",
+  "license": "MIT",
+  "author": "nishantCoding",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nishantCoding/beebear.git",
+    "directory": "packages/decorators"
+  },
+  "homepage": "https://github.com/nishantCoding/beebear",
+  "bugs": {
+    "url": "https://github.com/nishantCoding/beebear/issues"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "npm run build"
+  },
+  "peerDependencies": {
+    "beebear": "^0.2.0"
+  },
+  "devDependencies": {
+    "tsup": "^8.5.0"
+  },
+  "keywords": [
+    "beebear",
+    "decorators",
+    "dependency-injection",
+    "injectable",
+    "inject",
+    "typescript"
+  ]
+}

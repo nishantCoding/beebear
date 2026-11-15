@@ -296,14 +296,14 @@ All errors thrown by the container should be clear and actionable:
 
 ---
 
-## Decorator Plugin (`@beebear/decorators`)
+## Decorator Plugin (`@beebear-plugins/di-decorators`)
 
 Decorator support is NOT part of core. It is a separate, optional plugin
 that works with the same container.
 
 ```ts
-// @beebear/decorators — optional plugin
-import { Injectable, Inject } from '@beebear/decorators';
+// @beebear-plugins/di-decorators — optional plugin
+import { Injectable, Inject } from '@beebear-plugins/di-decorators';
 
 @Injectable()
 class RegisterUserService {
@@ -317,7 +317,7 @@ class RegisterUserService {
 The plugin:
 - Requires `reflect-metadata` and `experimentalDecorators` in tsconfig
 - Works with the same `Container` instance and `InjectionToken<T>` tokens
-- Is a separate package: `@beebear/decorators`
+- Is a separate package: `@beebear-plugins/di-decorators`
 
 ### Mutual Exclusivity (project-level, compile-time)
 
@@ -353,7 +353,7 @@ interface DecoratorContainer {
 
 ```ts
 import { createContainer } from 'beebear';
-import { withDecorators } from '@beebear/decorators';
+import { withDecorators } from '@beebear-plugins/di-decorators';
 
 const container = withDecorators(createContainer());
 
@@ -362,7 +362,7 @@ container.bind(UserRepository, ...);
 //             on type 'DecoratorContainer'
 ```
 
-The reverse is also safe — if the developer doesn't import `@beebear/decorators`,
+The reverse is also safe — if the developer doesn't import `@beebear-plugins/di-decorators`,
 `@Injectable()` and `@Inject()` simply don't exist. No way to use them.
 
 **`createHexApp()` accepts one container:**
