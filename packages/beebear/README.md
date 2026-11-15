@@ -123,7 +123,7 @@ That's it. POST `/users` → 201 on success, 409 on conflict, 400 on validation 
 
 ### DI Container
 
-Token-based, no decorators, no `reflect-metadata`.
+Token-based, no decorators, no `reflect-metadata`. Each token name must be unique — calling `Token('X')` or `Port('X')` twice throws. Define each token once and import it everywhere. If you need multiple implementations of the same interface, use separate tokens: `Port<Notifier>('EmailNotifier')` and `Port<Notifier>('SmsNotifier')`.
 
 ```ts
 import { createContainer, Port } from 'beebear';

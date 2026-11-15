@@ -1,7 +1,11 @@
-import { describe, it, expect } from 'vitest';
-import { Token } from '../token.js';
+import { describe, it, expect, beforeEach } from 'vitest';
+import { Token, clearTokenRegistry } from '../token.js';
 import { Port } from '../port.js';
 import { createContainer } from '../container.js';
+
+beforeEach(() => {
+  clearTokenRegistry();
+});
 
 // --- Test helpers ---
 

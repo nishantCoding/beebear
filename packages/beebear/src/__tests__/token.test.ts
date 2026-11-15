@@ -1,6 +1,10 @@
-import { describe, it, expect } from 'vitest';
-import { Token } from '../token.js';
+import { describe, it, expect, beforeEach } from 'vitest';
+import { Token, clearTokenRegistry } from '../token.js';
 import type { InjectionToken } from '../token.js';
+
+beforeEach(() => {
+  clearTokenRegistry();
+});
 
 describe('Token<T>()', () => {
   // --- Core behavior ---
@@ -15,10 +19,11 @@ describe('Token<T>()', () => {
     expect(token.description).toBe('UserRepository');
   });
 
-  it('returns a unique symbol on every call', () => {
-    const a = Token<unknown>('Same');
-    const b = Token<unknown>('Same');
-    expect(a).not.toBe(b);
+  it('throws on duplicate name', () => {
+    Token<unknown>('Dup');
+    expect(() => Token<unknown>('Dup')).toThrow(
+      'Token "Dup" is already registered. Define each token once and import it everywhere.',
+    );
   });
 
   it('creates distinct tokens for different names', () => {
@@ -52,7 +57,7 @@ describe('Token<T>()', () => {
   // --- Type safety (compile-time verification) ---
 
   it('token is assignable to symbol', () => {
-    const token: InjectionToken<string> = Token<string>('Test');
+    const token: InjectionToken<string> = Token<string>('AssignTest');
     const sym: symbol = token;
     expect(typeof sym).toBe('symbol');
   });
@@ -68,5 +73,14 @@ describe('Token<T>()', () => {
 
     const checkType = (_cache: Cache): void => {};
     expect(typeof checkType).toBe('function');
+  });
+
+  // --- clearTokenRegistry ---
+
+  it('clearTokenRegistry allows reuse of names', () => {
+    Token<unknown>('Reuse');
+    clearTokenRegistry();
+    const t = Token<unknown>('Reuse');
+    expect(typeof t).toBe('symbol');
   });
 });

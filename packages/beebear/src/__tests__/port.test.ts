@@ -1,11 +1,15 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { Port } from '../port.js';
-import { Token } from '../token.js';
+import { Token, clearTokenRegistry } from '../token.js';
 import type { InjectionToken } from '../token.js';
+
+beforeEach(() => {
+  clearTokenRegistry();
+});
 
 describe('Port<T>()', () => {
   it('returns a symbol', () => {
-    const token = Port<unknown>('Test');
+    const token = Port<unknown>('PortTest');
     expect(typeof token).toBe('symbol');
   });
 
@@ -14,15 +18,16 @@ describe('Port<T>()', () => {
     expect(token.description).toBe('UserRepository');
   });
 
-  it('returns a unique symbol on every call', () => {
-    const a = Port<unknown>('Same');
-    const b = Port<unknown>('Same');
-    expect(a).not.toBe(b);
+  it('throws on duplicate name (same guard as Token)', () => {
+    Port<unknown>('DupPort');
+    expect(() => Port<unknown>('DupPort')).toThrow(
+      'Token "DupPort" is already registered. Define each token once and import it everywhere.',
+    );
   });
 
   it('returns the same InjectionToken<T> type as Token<T>()', () => {
-    const portToken: InjectionToken<string> = Port<string>('Test');
-    const tokenToken: InjectionToken<string> = Token<string>('Test');
+    const portToken: InjectionToken<string> = Port<string>('PortTyped');
+    const tokenToken: InjectionToken<string> = Token<string>('TokenTyped');
     // Both are InjectionToken<string> — same type, different instances
     expect(typeof portToken).toBe('symbol');
     expect(typeof tokenToken).toBe('symbol');
