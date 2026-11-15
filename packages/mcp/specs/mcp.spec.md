@@ -76,6 +76,7 @@ The 6 key patterns every beebear app uses, with full code examples:
 4. **Container binding** — Factory functions, resolve dependencies, validate at startup
 5. **HTTP routes** — httpAdapter with toInput, method-based status defaults, overrides
 6. **Lifecycle hooks** — beforeExecute/afterExecute/onError, HookContext, state
+7. **Third-party DI (advanced)** — beebear's container can be swapped for another DI library by wrapping it to satisfy beebear's container interface (`resolve()`, `has()`). This is an escape hatch for teams already invested in another DI system — not a recommended path. Lifecycle semantics, token systems, and error handling differ across libraries, making the adapter non-trivial to get right
 
 ### `beebear://docs/project-structure`
 
@@ -138,6 +139,24 @@ Optional decorator-based DI via `@beebear-plugins/di-decorators`:
 - `clearRegistry()` — for testing, prevents registration leakage
 - Error cases: missing token, missing @Inject, duplicate tokens, circular deps
 - Full example: ports → decorated classes → withDecorators → createHexApp
+- Compatible with DDD plugin — decorator-based DI can be used alongside DDD objects without conflict
+
+### `beebear://docs/ddd`
+
+Optional DDD building blocks via `@beebear-plugins/ddd`:
+
+- When to use: complex domains where business rules get duplicated across use cases
+- Install: `npm install @beebear-plugins/ddd`
+- Zero dependencies, no peer dependency on beebear — works standalone
+- **ValueObject\<TProps\>** — immutable, structural equality, `validate()` hook, frozen props
+- **Entity\<TId\>** — identity-based equality, `id` is runtime-immutable via `Object.defineProperty`
+- **AggregateRoot\<TId\>** — extends Entity, collects domain events via `addEvent()` (protected), `getEvents()`, `clearEvents()`
+- **DomainEvent** — abstract class, `eventName`, `aggregateId`, `occurredAt` (all runtime-immutable), optional `timestampFactory` supporting `Date | string | number`
+- No DI involvement by default — DDD objects (Entity, ValueObject, AggregateRoot, DomainEvent) are created with `new` inside use cases and aggregates, not resolved from container. If DI is needed for a domain service (e.g. singleton pricing engine), it can be registered via beebear's container, decorators plugin, or any third-party DI
+- Events are collected, not dispatched — dispatching is infrastructure's job via an outbound port (e.g. `EventPublisher`)
+- Event flow: aggregate collects → use case saves aggregate → use case publishes via `EventPublisher` port → clears events
+- Outbound adapter implements `EventPublisher`: RabbitMQ, Kafka, SQS, outbox table — developer's choice
+- Non-goals: event bus, event sourcing, event store, repository base class, saga, domain service base class
 
 ---
 
@@ -320,6 +339,155 @@ container.bind(RegisterUser, (c) => new RegisterUserService(
 ));
 
 container.validate();
+```
+
+### `scaffold_entity`
+
+Generate an Entity subclass.
+
+**Input:**
+```ts
+{
+  name: string;            // e.g. "OrderItem"
+  idType: "string" | "number";
+  properties?: Array<{
+    name: string;          // e.g. "productId"
+    type: string;          // e.g. "string"
+    readonly?: boolean;    // default false
+  }>;
+}
+```
+
+**Output:**
+```ts
+import { Entity } from '@beebear-plugins/ddd';
+
+export class OrderItem extends Entity<string> {
+  constructor(
+    id: string,
+    public productId: string,
+    public quantity: number,
+    public price: Money,
+  ) {
+    super(id);
+  }
+}
+```
+
+### `scaffold_value_object`
+
+Generate a ValueObject subclass.
+
+**Input:**
+```ts
+{
+  name: string;            // e.g. "Money"
+  props: Array<{
+    name: string;          // e.g. "amount"
+    type: string;          // e.g. "number"
+  }>;
+  validationRules?: string[];  // e.g. ["amount must be >= 0", "currency is required"]
+}
+```
+
+**Output:**
+```ts
+import { ValueObject } from '@beebear-plugins/ddd';
+
+interface MoneyProps {
+  amount: number;
+  currency: string;
+}
+
+export class Money extends ValueObject<MoneyProps> {
+  protected validate(props: MoneyProps) {
+    if (props.amount < 0) throw new Error('Amount must be >= 0');
+    if (!props.currency) throw new Error('Currency is required');
+  }
+
+  get amount() { return this.props.amount; }
+  get currency() { return this.props.currency; }
+}
+```
+
+### `scaffold_aggregate`
+
+Generate an AggregateRoot subclass with domain events.
+
+**Input:**
+```ts
+{
+  name: string;              // e.g. "Order"
+  idType: "string" | "number";
+  events?: Array<{
+    name: string;            // e.g. "OrderPlaced"
+    fields?: Array<{
+      name: string;          // e.g. "total"
+      type: string;          // e.g. "number"
+    }>;
+  }>;
+}
+```
+
+**Output:**
+```ts
+import { AggregateRoot, DomainEvent } from '@beebear-plugins/ddd';
+
+export class OrderPlaced extends DomainEvent {
+  constructor(orderId: string, readonly total: number) {
+    super('OrderPlaced', orderId);
+  }
+}
+
+export class Order extends AggregateRoot<string> {
+  place(total: number) {
+    // TODO: enforce invariants
+    this.addEvent(new OrderPlaced(this.id, total));
+  }
+}
+```
+
+### `scaffold_event_publisher`
+
+Generate an EventPublisher outbound port and adapter.
+
+**Input:**
+```ts
+{
+  transport: "rabbitmq" | "kafka" | "sqs" | "outbox";
+}
+```
+
+**Output (port):**
+```ts
+import { Port } from 'beebear';
+import type { DomainEvent } from '@beebear-plugins/ddd';
+
+export interface EventPublisher {
+  publish(events: ReadonlyArray<DomainEvent>): Promise<void>;
+}
+
+export const EventPublisher = Port<EventPublisher>('EventPublisher');
+```
+
+**Output (adapter — varies by transport):**
+```ts
+import type { EventPublisher } from '../../domain/ports/outbound/EventPublisher.js';
+import type { DomainEvent } from '@beebear-plugins/ddd';
+
+export class RabbitMQEventPublisher implements EventPublisher {
+  constructor(private channel: Channel) {}
+
+  async publish(events: ReadonlyArray<DomainEvent>) {
+    for (const event of events) {
+      await this.channel.publish(
+        'events',
+        event.eventName,
+        Buffer.from(JSON.stringify(event)),
+      );
+    }
+  }
+}
 ```
 
 ### `scaffold_decorator_setup`

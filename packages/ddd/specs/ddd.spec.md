@@ -206,21 +206,24 @@ event is a separate class extending `DomainEvent`.
 
 ```ts
 export abstract class DomainEvent {
-  readonly occurredAt: Date;
+  readonly eventName: string;
+  readonly aggregateId: string | number;
+  readonly occurredAt: Date | string | number;
 
   constructor(
-    readonly eventName: string,
-    readonly aggregateId: string | number,
-  ) {
-    this.occurredAt = new Date();
-  }
+    eventName: string,
+    aggregateId: string | number,
+    timestampFactory?: () => Date | string | number,
+  );
 }
 ```
 
 **Key characteristics:**
 - `eventName` — identifies the event type (e.g. `'OrderPlaced'`)
 - `aggregateId` — ID of the aggregate that emitted the event
-- `occurredAt` — auto-set to current time in constructor
+- `occurredAt` — defaults to `new Date()`, or uses `timestampFactory` if provided
+- `timestampFactory` — optional. Returns `Date`, `string` (ISO), or `number` (`Date.now()`)
+- All fields are immutable at runtime via `Object.defineProperty` (not just compile-time `readonly`)
 - Developer extends for each event type, adding event-specific fields
 - Events are data — they describe something that happened, not commands
 - No DI — created with `new` inside aggregate methods
@@ -304,19 +307,25 @@ export abstract class DomainEvent {
 
 ### DomainEvent
 
-22. **`occurredAt` is auto-set.** The constructor sets it to `new Date()`.
-    The developer does not pass a timestamp — it's always "now".
+22. **`occurredAt` defaults to `new Date()`.** If no `timestampFactory` is
+    provided, the constructor sets `occurredAt` to `new Date()`.
 
-23. **`eventName` identifies the event type.** Convention: use the class name
+23. **`timestampFactory` overrides the default timestamp.** Pass
+    `() => Date.now()` for UTC numbers, `() => new Date().toISOString()`
+    for ISO strings, or a fixed date for testing/replay scenarios.
+
+24. **`eventName` identifies the event type.** Convention: use the class name
     (e.g. `'OrderPlaced'`). Passed via `super()` call.
 
-24. **`aggregateId` links the event to its source aggregate.** Passed via
+25. **`aggregateId` links the event to its source aggregate.** Passed via
     `super()` call.
 
-25. **Events are immutable data.** All properties are `readonly`. Events
-    describe what happened — they cannot be modified after creation.
+26. **Events are immutable at runtime.** All properties (`eventName`,
+    `aggregateId`, `occurredAt`) use `Object.defineProperty` with
+    `writable: false`. Assigning to them throws a `TypeError` at runtime,
+    not just at compile time.
 
-26. **One class per event type.** `OrderPlaced`, `ItemAdded`,
+27. **One class per event type.** `OrderPlaced`, `ItemAdded`,
     `OrderCancelled` are each separate classes extending `DomainEvent`.
 
 ---
@@ -431,6 +440,31 @@ event.total;        // 99.99
 event instanceof DomainEvent;  // true
 ```
 
+### DomainEvent — Custom Timestamp
+
+```ts
+// UTC number (Date.now())
+class OrderPlaced extends DomainEvent {
+  constructor(orderId: string, readonly total: number) {
+    super('OrderPlaced', orderId, () => Date.now());
+  }
+}
+
+// ISO string
+class OrderPlaced extends DomainEvent {
+  constructor(orderId: string, readonly total: number) {
+    super('OrderPlaced', orderId, () => new Date().toISOString());
+  }
+}
+
+// Fixed timestamp (testing / event replay)
+class OrderPlaced extends DomainEvent {
+  constructor(orderId: string, readonly total: number) {
+    super('OrderPlaced', orderId, () => new Date('2025-01-01T00:00:00Z'));
+  }
+}
+```
+
 ### AggregateRoot — Order (full example)
 
 ```ts
@@ -484,11 +518,13 @@ class Order extends AggregateRoot<string> {
 }
 ```
 
-### Integration with Use Case
+### Integration with Use Case — Full Event Flow
 
 ```ts
-import { Port } from 'beebear';
-import type { UseCase } from 'beebear';
+import { Port, createContainer, createHexApp } from 'beebear';
+import type { UseCase, DomainEvent } from 'beebear';
+
+// --- Outbound ports (driven) ---
 
 interface OrderRepository {
   findById(id: string): Promise<Order | null>;
@@ -496,26 +532,92 @@ interface OrderRepository {
 }
 const OrderRepository = Port<OrderRepository>('OrderRepository');
 
+interface EventPublisher {
+  publish(events: ReadonlyArray<DomainEvent>): Promise<void>;
+}
+const EventPublisher = Port<EventPublisher>('EventPublisher');
+
+// --- Inbound port (driving) ---
+
 interface PlaceOrder extends UseCase<{ orderId: string }, { orderId: string }> {}
 const PlaceOrder = Port<PlaceOrder>('PlaceOrder');
 
+// --- Service implementation (inside hexagon) ---
+
 class PlaceOrderService implements PlaceOrder {
-  constructor(private orders: OrderRepository) {}
+  constructor(
+    private orders: OrderRepository,
+    private events: EventPublisher,
+  ) {}
 
   async execute(input: { orderId: string }) {
     const order = await this.orders.findById(input.orderId);
     if (!order) throw new NotFoundError('Order not found');
 
-    order.place();  // one line — all rules enforced
+    order.place();  // all rules enforced inside aggregate
 
     await this.orders.save(order);
-    // Infrastructure can read order.getEvents() after save
-    // to dispatch to event bus, then order.clearEvents()
+    await this.events.publish(order.getEvents());
+    order.clearEvents();
 
     return { orderId: order.id };
   }
 }
+
+// --- Outbound adapters (infrastructure) ---
+
+// Option A: Direct publish to message queue
+class RabbitMQEventPublisher implements EventPublisher {
+  constructor(private channel: Channel) {}
+
+  async publish(events: ReadonlyArray<DomainEvent>) {
+    for (const event of events) {
+      await this.channel.publish(
+        'events',
+        event.eventName,
+        Buffer.from(JSON.stringify(event)),
+      );
+    }
+  }
+}
+
+// Option B: Outbox pattern — save events to DB, relay later
+class OutboxEventPublisher implements EventPublisher {
+  constructor(private db: Database) {}
+
+  async publish(events: ReadonlyArray<DomainEvent>) {
+    await this.db.outboxEvents.insertMany(
+      events.map(e => ({
+        eventName: e.eventName,
+        aggregateId: e.aggregateId,
+        payload: JSON.stringify(e),
+        published: false,
+      })),
+    );
+  }
+}
+
+// --- Composition root ---
+
+const container = createContainer();
+container.bind(OrderRepository, () => new PrismaOrderRepository(prisma));
+container.bind(EventPublisher, () => new RabbitMQEventPublisher(channel));
+container.bind(PlaceOrder, () => new PlaceOrderService(
+  container.resolve(OrderRepository),
+  container.resolve(EventPublisher),
+));
+container.validate();
+
+const hex = createHexApp({ container });
+await hex.execute(PlaceOrder, { orderId: 'order-1' });
 ```
+
+**Key points:**
+- `EventPublisher` is an **outbound port** — the interface lives in the domain, the adapter is infrastructure
+- The aggregate collects events, the use case orchestrates save + publish + clear
+- The developer chooses the transport: RabbitMQ, Kafka, SQS, outbox table, etc.
+- beebear provides: DomainEvent base class, AggregateRoot event collection, DI wiring
+- beebear does NOT provide: the event bus, message broker, or outbox relay
 
 ---
 
