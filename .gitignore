@@ -29,3 +29,6 @@ github-issue-draft.md
 
 # Debug logs
 .pnpm-debug.log
+
+# Local design notes
+drafts/
