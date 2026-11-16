@@ -15,7 +15,7 @@ AI assistants don't know beebear. They'll generate decorator-heavy code, skip `P
 ### With Claude Code
 
 ```bash
-claude mcp add beebear-mcp -- npx @beebear-plugins/mcp
+claude mcp add beebear-mcp -- npx -y @beebear-plugins/mcp
 ```
 
 ### With Claude Desktop
@@ -27,7 +27,7 @@ Add to your `claude_desktop_config.json`:
   "mcpServers": {
     "beebear": {
       "command": "npx",
-      "args": ["@beebear-plugins/mcp"]
+      "args": ["-y", "@beebear-plugins/mcp"]
     }
   }
 }
@@ -36,7 +36,7 @@ Add to your `claude_desktop_config.json`:
 ### With any MCP client
 
 ```bash
-npx @beebear-plugins/mcp
+npx -y @beebear-plugins/mcp
 ```
 
 ## Resources
