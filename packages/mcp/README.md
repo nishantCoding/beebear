@@ -10,13 +10,13 @@ AI assistants don't know beebear. They'll generate decorator-heavy code, skip `P
 - **10 Tools** — Code scaffold generators for ports, use cases, adapters, routes, container setup, DDD building blocks, and decorator setup
 - **2 Prompts** — Guided workflows for creating new projects and adding features
 
-## Installation
+## Usage
+
+### With Claude Code
 
 ```bash
-npm install -g @beebear-plugins/mcp
+claude mcp add beebear-mcp -- npx @beebear-plugins/mcp
 ```
-
-## Usage
 
 ### With Claude Desktop
 
@@ -26,24 +26,17 @@ Add to your `claude_desktop_config.json`:
 {
   "mcpServers": {
     "beebear": {
-      "command": "beebear-mcp"
+      "command": "npx",
+      "args": ["@beebear-plugins/mcp"]
     }
   }
 }
 ```
 
-### With Claude Code
-
-```bash
-claude mcp add beebear-mcp -- beebear-mcp
-```
-
 ### With any MCP client
 
-The server runs on stdio transport:
-
 ```bash
-beebear-mcp
+npx @beebear-plugins/mcp
 ```
 
 ## Resources

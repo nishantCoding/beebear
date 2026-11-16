@@ -1,6 +1,6 @@
 {
   "name": "@beebear-plugins/mcp",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "MCP server for AI coding assistants — teaches beebear patterns and scaffolds idiomatic code",
   "license": "MIT",
   "author": "nishantCoding",
