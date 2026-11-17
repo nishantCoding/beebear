@@ -584,15 +584,15 @@ Prompts are user-triggered workflows that guide the AI through multi-step tasks.
 
 ```ts
 #!/usr/bin/env node
-import { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 
-const server = new Server(
-  { name: 'beebear-mcp', version: '0.1.0' },
-  { capabilities: { resources: {}, tools: {}, prompts: {} } },
-);
+const server = new McpServer({
+  name: 'beebear-mcp',
+  version: '0.1.1',
+});
 
-// Register all handlers...
+// Register resources, tools, prompts...
 
 const transport = new StdioServerTransport();
 await server.connect(transport);
