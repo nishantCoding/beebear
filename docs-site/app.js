@@ -6,23 +6,24 @@ DOCS.overview = `# beebear — Hexagonal Architecture Framework
 
 ## What is beebear?
 
-beebear is a lightweight, **decorator-free** framework that provides the plumbing for
-hexagonal architecture (ports and adapters) in Node.js/TypeScript. It has **zero runtime
-dependencies**. Developers focus on domain logic and adapter implementations; beebear
-handles dependency injection, error mapping, use case execution, and transport abstraction.
+beebear is a lightweight, **decorator-free** framework for hexagonal architecture
+(ports and adapters) in Node.js/TypeScript. It has **zero runtime dependencies**.
+You focus on domain logic and adapter implementations; beebear gives you the
+building blocks — a DI container, error classes with HTTP status mapping,
+and HTTP adapter support for Express, Fastify, and Hono.
 
 ## Core Concepts
 
 ### Hexagonal Architecture
-The application is split into an inner hexagon (domain logic) and outer adapters
+Your application is split into an inner hexagon (domain logic) and outer adapters
 (infrastructure). The domain defines **ports** (interfaces) that adapters implement.
 Dependencies always point inward — the domain never imports infrastructure code.
 
 ### Ports
-Ports are standard TypeScript interfaces with co-located runtime tokens created via
-\`Port<T>(name)\`. Ports live inside the domain. There are two kinds:
-- **Inbound (driving) ports** — use case interfaces that the outside world calls in
-- **Outbound (driven) ports** — repository/service interfaces the domain depends on
+Ports are TypeScript interfaces paired with a runtime token via \`Port<T>(name)\`.
+Ports live inside the domain. There are two kinds:
+- **Inbound (driving) ports** — use case interfaces that the outside world calls
+- **Outbound (driven) ports** — repository/service interfaces the domain needs
 
 ### Adapters
 Adapters live in infrastructure and implement port interfaces:
@@ -34,21 +35,21 @@ Class-based by default. A use case implements a driving port and depends on driv
 Use cases live inside the hexagon and have zero framework imports.
 
 ### DI Container
-Token-based, no decorators, no \`reflect-metadata\`. Explicit factory functions.
-Singleton by default with transient and scoped opt-in. Startup validation catches
-missing bindings before the app starts.
+Token-based, no decorators, no \`reflect-metadata\`. You register dependencies
+explicitly. Singleton by default with transient and scoped opt-in. Call
+\`container.validate()\` at startup to catch missing bindings early.
 
-## What beebear Handles vs What You Handle
+## What beebear Gives You vs What You Bring
 
-**beebear provides:**
+**beebear gives you:**
 - \`Port<T>()\` / \`Token<T>()\` — typed DI tokens
 - \`createContainer()\` — DI container with bind/resolve/validate
-- \`createHexApp()\` — ties container, error mapping, HTTP adapters, and hooks together
-- Error base classes with automatic HTTP status mapping
-- Transport abstraction via \`httpAdapter()\` (Express, Fastify, Hono)
+- \`createHexApp()\` — wires container, error mapping, HTTP adapters, and hooks
+- Error base classes with built-in HTTP status mapping
+- \`httpAdapter()\` — connects use cases to Express, Fastify, or Hono routes
 - Lifecycle hooks: \`beforeExecute\`, \`afterExecute\`, \`onError\`
 
-**You provide:**
+**You bring:**
 - HTTP server (Express, Fastify, Hono)
 - Database client (Prisma, Drizzle, Mongoose)
 - Validation library (Zod, Joi, etc.) — used in middleware before routes
@@ -69,15 +70,15 @@ DOCS.api = `# API Reference
 ## Token & Port
 
 \`\`\`ts
-type InjectionToken<T> = symbol & { readonly __type?: T };
+type InjectionToken<T> = symbol & { __type?: T };
 
 function Token<T>(name: string): InjectionToken<T>;
 function Port<T>(name: string): InjectionToken<T>;
 \`\`\`
 
-- \`Token<T>(name)\` creates a unique branded symbol for DI. Throws if \`name\` is already used.
-- \`Port<T>(name)\` is a semantic alias for \`Token\`. Use \`Port\` for hexagonal ports, \`Token\` for general dependencies.
-- The phantom type \`T\` enables type-safe resolution — \`container.resolve(token)\` returns \`T\`.
+- \`Token<T>(name)\` creates a unique token for DI. Throws if \`name\` is already used.
+- \`Port<T>(name)\` is an alias for \`Token\`. Use \`Port\` for hexagonal ports, \`Token\` for general dependencies.
+- The type parameter \`T\` keeps resolution type-safe — \`container.resolve(token)\` returns \`T\`.
 
 ## Container
 
@@ -100,9 +101,9 @@ interface BindOptions {
 }
 \`\`\`
 
-- \`bind(token, factory)\` — factory receives the container for resolving dependencies.
-- \`bind(token, Constructor, [depTokens])\` — shorthand, container resolves deps and passes to constructor.
-- \`resolve(token)\` — returns the instance. Singleton by default (cached after first resolve).
+- \`bind(token, factory)\` — you provide a function that returns the instance.
+- \`bind(token, Constructor, [depTokens])\` — shorthand: you list the dependency tokens, beebear passes them to the constructor.
+- \`resolve(token)\` — returns the instance. Singleton by default (cached after first call).
 - \`has(token)\` — check if a binding exists.
 - \`validate()\` — throws if any binding has unresolvable dependencies. Call at startup.
 - \`createScope()\` — child container for scoped lifecycles.
@@ -204,7 +205,7 @@ DOCS.patterns = `# Patterns
 
 ## 1. Port Definition
 
-Ports are TypeScript interfaces with co-located runtime tokens. Inbound ports define
+Ports are TypeScript interfaces paired with runtime tokens. Inbound ports define
 what the outside world can ask the domain to do. Outbound ports define what the domain
 needs from infrastructure.
 
@@ -432,7 +433,7 @@ export class Order {
 ### domain/ports/inbound/
 Driving port interfaces that define what the outside world can ask the domain to do.
 Each file exports a TypeScript interface (extending \`UseCase<TInput, TOutput>\`) and
-a co-located \`Port<T>()\` token.
+a \`Port<T>()\` token defined alongside the interface.
 
 \`\`\`ts
 // domain/ports/inbound/create-order.port.ts
@@ -544,7 +545,7 @@ The \`code\` property defaults to a snake_case derivation of the class name (e.g
 
 ## Default Error-to-Status Map
 
-\`createHexApp\` ships with a built-in map:
+\`createHexApp\` includes these defaults:
 
 \`\`\`ts
 {
@@ -574,8 +575,8 @@ export class OrderAlreadyShippedError extends ConflictError {
 }
 \`\`\`
 
-Custom subclasses automatically inherit the parent's HTTP status mapping. An
-\`OrderAlreadyShippedError\` maps to 409 because it extends \`ConflictError\`.
+Custom subclasses inherit the parent's HTTP status. An \`OrderAlreadyShippedError\`
+maps to 409 because it extends \`ConflictError\`.
 
 ## Overriding the Error Map
 
@@ -595,8 +596,7 @@ const hex = createHexApp({
 });
 \`\`\`
 
-The map key is the error class \`name\` property (the class name string). beebear checks
-the error's prototype chain, so subclass mappings take priority over parent mappings.
+The map key is the error class name. Subclass mappings take priority over parent mappings.
 
 ## Usage in Use Cases
 
@@ -644,9 +644,8 @@ DOCS['http-adapters'] = `# HTTP Adapters
 
 ## Overview
 
-beebear uses a **strategy pattern** for HTTP framework support. The framework strategy
-is resolved once at startup — no branching at request time. Supported built-in frameworks:
-Express, Fastify, and Hono.
+beebear supports Express, Fastify, and Hono out of the box. You pick your framework
+once at startup, and beebear gives you route handlers that work with it.
 
 ## Framework Selection
 
@@ -658,15 +657,15 @@ const hex = createHexApp({ container, framework: 'express' });
 const hex = createHexApp({ container, framework: 'fastify' });
 const hex = createHexApp({ container, framework: 'hono' });
 
-// Auto-detection: beebear calls require.resolve() at startup
-// to find which HTTP framework is installed
+// Auto-detection: beebear finds which framework is installed
 const hex = createHexApp({ container });
 \`\`\`
 
 ## httpAdapter Usage
 
-\`httpAdapter\` creates a framework-native request handler that extracts input, runs
-the use case, and sends the response.
+\`httpAdapter\` returns a route handler for your framework. You provide a \`toInput\`
+function that extracts the use case input from the request — beebear runs the use
+case and sends the response.
 
 \`\`\`ts
 interface HttpAdapterOptions<TInput> {
@@ -778,9 +777,9 @@ if (result.success) {
 }
 \`\`\`
 
-## Custom FrameworkStrategy
+## Custom Framework Support
 
-Implement a custom strategy for unsupported frameworks or non-HTTP transports:
+For frameworks other than Express/Fastify/Hono, pass a custom handler object:
 
 \`\`\`ts
 import { createHexApp } from 'beebear';
@@ -804,8 +803,8 @@ const hex = createHexApp({ container, framework: customStrategy });
 
 ## Payload Validation
 
-Structural/payload validation (Zod, Joi, etc.) happens in middleware **before**
-\`httpAdapter\`. It is a boundary concern, not the framework's job:
+Structural/payload validation (Zod, Joi, etc.) happens in your middleware **before**
+\`httpAdapter\`:
 
 \`\`\`ts
 import { z } from 'zod';
@@ -857,7 +856,7 @@ npm install @beebear-plugins/di-decorators
 
 ### @Injectable(token, options?)
 
-Class decorator. Registers the class in a global registry for auto-binding.
+Class decorator. Marks the class so it gets wired up when you call \`withDecorators()\`.
 
 \`\`\`ts
 import { Injectable, Inject }
@@ -888,8 +887,7 @@ from the container.
 
 ### withDecorators(container)
 
-Reads the global registry populated by \`@Injectable\`, binds all registered classes
-to the container, and returns a \`DecoratorContainer\`.
+Applies all \`@Injectable\` classes to the container and returns a \`DecoratorContainer\`.
 
 \`\`\`ts
 import { createContainer } from 'beebear';
@@ -1016,8 +1014,8 @@ npm install @beebear-plugins/ddd
 
 ## ValueObject<TProps>
 
-Abstract base class for immutable objects defined by their structural properties
-(no identity). Uses structural equality and freezes props at construction.
+Base class for immutable objects identified by their properties (no unique ID).
+Two value objects with the same properties are considered equal.
 
 \`\`\`ts
 import { ValueObject } from '@beebear-plugins/ddd';
@@ -1055,14 +1053,14 @@ a.equals(b); // true — structural equality
 \`\`\`
 
 Key behaviors:
-- \`props\` are frozen (Object.freeze) after construction — immutable at runtime.
-- \`validate(props)\` hook is called during construction. Override to add rules.
-- \`equals(other)\` compares all props by value (deep structural equality).
+- \`props\` are immutable after construction — cannot be changed.
+- \`validate(props)\` is called during construction. Override to add rules.
+- \`equals(other)\` compares all props by value.
 
 ## Entity<TId>
 
-Abstract base class for objects with a unique identity. Identity-based equality.
-\`TId\` must be \`string\` or \`number\`.
+Base class for objects with a unique identity. Two entities with the same \`id\`
+are considered equal, regardless of other properties. \`TId\` is \`string\` or \`number\`.
 
 \`\`\`ts
 import { Entity } from '@beebear-plugins/ddd';
@@ -1092,7 +1090,7 @@ user1.equals(user2); // true — same id
 \`\`\`
 
 Key behaviors:
-- \`id\` is set via \`super(id)\` and made runtime-immutable using \`Object.defineProperty\`.
+- \`id\` is immutable once set via \`super(id)\`.
 - \`equals(other)\` compares by \`id\` only, ignoring other properties.
 
 ## AggregateRoot<TId>
@@ -1134,13 +1132,13 @@ order.clearEvents();
 \`\`\`
 
 Key behaviors:
-- \`addEvent(event)\` is protected — only the aggregate itself can record events.
+- \`addEvent(event)\` can only be called from within the aggregate.
 - \`getEvents()\` returns all uncommitted domain events.
 - \`clearEvents()\` is called after events have been dispatched/persisted.
 
 ## DomainEvent
 
-Abstract base class for domain events. All fields are runtime-immutable.
+Base class for domain events. All fields are immutable.
 
 \`\`\`ts
 import { DomainEvent } from '@beebear-plugins/ddd';
@@ -1160,11 +1158,10 @@ event.occurredAt;  // Date (auto-set at construction)
 \`\`\`
 
 Key behaviors:
-- \`eventName\` — abstract, must be defined by subclass.
+- \`eventName\` — you define this in your subclass.
 - \`aggregateId\` — the id of the aggregate that raised the event.
-- \`occurredAt\` — timestamp, defaults to \`new Date()\`. Accepts \`Date\`, \`string\`, or \`number\`.
-- Optional \`timestampFactory\` parameter in constructor for deterministic testing.
-- All fields are made runtime-immutable after construction.
+- \`occurredAt\` — timestamp, set automatically at construction.
+- All fields are immutable after construction.
 
 ## Using with beebear
 
@@ -1202,21 +1199,375 @@ export class SubmitOrderUseCase
 \`\`\`
 `;
 
+DOCS.skills = `# Claude Code Skills for beebear
+
+Ready-to-use skill files for AI coding assistants. Copy these into your
+project and your assistant will generate correct beebear code out of the box.
+
+## Setup
+
+\`\`\`
+.claude/skills/
+├── beebear/SKILL.md          # conventions, structure, rules
+├── beebear-scaffold/SKILL.md # code generation for all constructs
+└── beebear-ddd/SKILL.md      # only if using @beebear-plugins/ddd
+\`\`\`
+
+Create the folders, paste the content below into each \`SKILL.md\`, done.
+
+---
+
+## 1. beebear — Project Conventions
+
+This is the most important one. It teaches your AI assistant the architecture
+rules, file layout, and how all the pieces connect.
+
+\`\`\`markdown
+---
+name: beebear
+description: beebear hexagonal architecture conventions — project structure, dependency direction, coding patterns, and what NOT to do
+---
+
+# beebear Project Conventions
+
+This project uses beebear — a decorator-free hexagonal architecture framework
+for Node.js/TypeScript with zero runtime dependencies.
+
+## Project Structure
+
+src/
+  domain/
+    models/          — plain TS classes, no framework imports
+    ports/
+      inbound/       — use case interfaces + Port<T>() tokens
+      outbound/      — repository/service interfaces + Port<T>() tokens
+    use-cases/       — use case classes implementing inbound ports
+    errors/          — custom error subclasses (extend beebear errors)
+  infrastructure/
+    persistence/     — DB adapters implementing outbound ports
+    http/            — route files using hex.httpAdapter()
+    services/        — external service adapters (email, payment, etc.)
+
+## Dependency Rule
+
+domain/ NEVER imports from infrastructure/. Ever. Dependencies point inward.
+Ports are owned by the domain. Infrastructure implements them.
+
+## Port Pattern
+
+Every port is a TypeScript interface paired with a runtime token:
+
+  import { Port } from 'beebear';
+  export interface UserRepository { ... }
+  export const UserRepository = Port<UserRepository>('UserRepository');
+
+The type and const share the same name. This is intentional (declaration merging).
+Inbound ports extend UseCase<TInput, TOutput>. Outbound ports are plain interfaces.
+One port per file. Token name must be unique across the app.
+
+## Use Case Pattern
+
+Use cases implement inbound ports, receive outbound ports via constructor:
+
+  export class RegisterUserUseCase implements RegisterUserPort {
+    constructor(private readonly userRepo: UserRepository) {}
+    async execute(input: RegisterUserInput): Promise<RegisterUserOutput> { ... }
+  }
+
+No framework imports in use cases. Only beebear error classes and port types.
+Throw NotFoundError, ConflictError, ValidationError for domain rule violations.
+
+## Container Wiring
+
+All wiring happens at the entry point (main.ts or container.ts):
+
+  const container = createContainer();
+  container.bind(UserRepository, () => new PrismaUserRepository(prisma));
+  container.bind(RegisterUserPort, (c) => new RegisterUserUseCase(c.resolve(UserRepository)));
+  container.validate();  // catches missing bindings at startup
+
+Singleton by default. Transient and scoped are opt-in via { lifecycle: 'transient' }.
+
+## HTTP Routes
+
+  const hex = createHexApp({ container, framework: 'express' });
+  app.post('/users', hex.httpAdapter(RegisterUserPort, {
+    toInput: (req) => ({ email: req.body.email, name: req.body.name }),
+  }));
+
+toInput is always required. POST defaults to 201, DELETE to 204, others to 200.
+Validation middleware (Zod, Joi) runs BEFORE httpAdapter.
+
+## Error Handling
+
+beebear errors map to HTTP status codes:
+  BusinessError=400, ValidationError=400, NotFoundError=404,
+  ConflictError=409, UnauthorizedError=401, ForbiddenError=403.
+
+Custom errors extend a parent: class OrderShippedError extends ConflictError { }
+They inherit the parent's status code. Unknown errors become 500.
+
+## DO NOT
+
+- Do NOT use decorators or reflect-metadata (beebear is decorator-free)
+- Do NOT import infrastructure code inside domain/
+- Do NOT put business logic in adapters or route files
+- Do NOT skip container.validate() at startup
+- Do NOT use abstract classes for ports — use plain interfaces + Port<T>()
+- Do NOT auto-wire dependencies — all bindings are explicit
+\`\`\`
+
+---
+
+## 2. beebear-scaffold — Code Generation
+
+This one lets your assistant generate any beebear construct on command.
+
+\`\`\`markdown
+---
+name: beebear-scaffold
+description: Generate beebear code — ports, use cases, adapters, routes, container bindings, and custom errors
+---
+
+# beebear Code Scaffolding
+
+When asked to create beebear constructs, follow these exact patterns.
+
+## Inbound Port (use case interface)
+
+File: src/domain/ports/inbound/<kebab-name>.port.ts
+
+  import { Port } from 'beebear';
+  import type { UseCase } from 'beebear';
+
+  export interface <Name>Input {
+    // fields
+  }
+
+  export interface <Name>Output {
+    // fields
+  }
+
+  export type <Name>Port = UseCase<<Name>Input, <Name>Output>;
+  export const <Name>Port = Port<<Name>Port>('<Name>');
+
+## Outbound Port (repository or service interface)
+
+File: src/domain/ports/outbound/<kebab-name>.port.ts
+
+  import { Port } from 'beebear';
+
+  export interface <Name> {
+    // methods — use Promise return types for async
+  }
+
+  export const <Name> = Port<<Name>>('<Name>');
+
+## Use Case
+
+File: src/domain/use-cases/<kebab-name>.use-case.ts
+
+  import type { <Port>, <Input>, <Output> } from '../ports/inbound/<port>.port';
+  import type { <OutboundPort> } from '../ports/outbound/<dep>.port';
+  import { NotFoundError, ConflictError, ValidationError } from 'beebear';
+
+  export class <Name>UseCase implements <Port> {
+    constructor(
+      private readonly <dep>: <OutboundPort>,
+    ) {}
+
+    async execute(input: <Input>): Promise<<Output>> {
+      // business logic here
+      // throw beebear errors for domain violations
+    }
+  }
+
+## Driven Adapter
+
+File: src/infrastructure/persistence/<kebab-name>.ts (or services/)
+
+  import type { <Port> } from '../../domain/ports/outbound/<port>.port';
+
+  export class <Name> implements <Port> {
+    // implement every method from the port interface
+    // can import any third-party library
+  }
+
+## HTTP Route
+
+  app.<method>('<path>', hex.httpAdapter(<Token>, {
+    toInput: (req) => ({
+      // map req.body, req.params, req.query to use case input
+    }),
+  }));
+
+  // Status defaults: POST=201, DELETE=204, others=200
+  // Override: { toInput: ..., status: 200 }
+
+## Container Binding
+
+  // Factory form
+  container.bind(<Token>, () => new <Impl>());
+
+  // Factory with dependencies
+  container.bind(<Token>, (c) => new <Impl>(c.resolve(<Dep>)));
+
+  // Constructor shorthand
+  container.bind(<Token>, <Impl>, [<Dep1>, <Dep2>]);
+
+  // Lifecycle
+  container.bind(<Token>, () => new <Impl>(), { lifecycle: 'transient' });
+
+## Custom Error
+
+File: src/domain/errors/<kebab-name>.error.ts
+
+  import { <ParentError> } from 'beebear';
+
+  export class <Name> extends <ParentError> {
+    constructor(/* context */) {
+      super('message', 'UPPER_SNAKE_CODE');
+    }
+  }
+
+  // Parents: BusinessError(400), ValidationError(400), NotFoundError(404),
+  // ConflictError(409), UnauthorizedError(401), ForbiddenError(403)
+
+## Naming Conventions
+
+- Files: kebab-case with suffix (.port.ts, .use-case.ts, .error.ts)
+- Classes/Interfaces: PascalCase
+- Ports: same name for type and const (declaration merging)
+- One construct per file
+\`\`\`
+
+---
+
+## 3. beebear-ddd — DDD Building Blocks
+
+Only needed if you use the \`@beebear-plugins/ddd\` package.
+
+\`\`\`markdown
+---
+name: beebear-ddd
+description: Generate DDD building blocks using @beebear-plugins/ddd — ValueObject, Entity, AggregateRoot, and DomainEvent
+---
+
+# beebear DDD Scaffolding
+
+This project uses @beebear-plugins/ddd for Domain-Driven Design building blocks.
+
+## ValueObject
+
+Immutable. Compared by properties. Override validate() to enforce rules.
+
+File: src/domain/models/<kebab-name>.ts
+
+  import { ValueObject } from '@beebear-plugins/ddd';
+
+  interface <Name>Props {
+    // properties
+  }
+
+  export class <Name> extends ValueObject<<Name>Props> {
+    protected validate(props: <Name>Props): void {
+      // throw Error if props are invalid
+    }
+
+    get <prop>(): <type> { return this.props.<prop>; }
+
+    // value objects are immutable — methods return new instances
+    // e.g. add(other: Money): Money { return new Money({ ... }); }
+  }
+
+## Entity
+
+Has a unique ID. Compared by ID only, not by properties.
+
+File: src/domain/models/<kebab-name>.ts
+
+  import { Entity } from '@beebear-plugins/ddd';
+
+  export class <Name> extends Entity<string> {
+    constructor(
+      id: string,
+      // other fields as private members
+    ) {
+      super(id);
+    }
+
+    // id is immutable after construction
+    // entities CAN have mutable state (unlike value objects)
+  }
+
+## AggregateRoot + DomainEvent
+
+An aggregate root is an Entity that records domain events.
+
+File: src/domain/models/<kebab-name>.ts
+
+  import { AggregateRoot, DomainEvent } from '@beebear-plugins/ddd';
+
+  export class <EventName> extends DomainEvent {
+    readonly eventName = '<EventName>';
+    constructor(aggregateId: string /*, extra fields */) {
+      super(aggregateId);
+    }
+  }
+
+  export class <Name> extends AggregateRoot<string> {
+    doSomething(): void {
+      // enforce invariants, then record event
+      this.addEvent(new <EventName>(this.id));
+    }
+  }
+
+  // After persisting: aggregate.getEvents() to dispatch, then clearEvents()
+
+## Rules
+
+- ValueObject: props are frozen after construction, equals() compares all props
+- Entity: id is immutable, equals() compares id only
+- AggregateRoot: addEvent() only callable from inside the aggregate
+- DomainEvent: eventName + aggregateId + occurredAt are all immutable
+- Domain models go in domain/models/, never in infrastructure/
+- @beebear-plugins/ddd is standalone — works with or without core beebear
+\`\`\`
+`;
+
 DOCS.mcp = `# @beebear-plugins/mcp
 
-MCP (Model Context Protocol) server that teaches AI coding assistants how to use
-beebear — the hexagonal architecture framework for Node.js/TypeScript.
+**An experimental take on MCP.** Most MCP servers connect AI assistants to external
+services — databases, APIs, file systems. This one is different: it doesn't connect
+to anything. Instead, it teaches an AI assistant *how to write code* in a specific
+style. It's MCP as a knowledge layer, not an integration layer.
+
+We built this to explore a question: can you use MCP to make an AI assistant
+genuinely understand a framework's conventions, patterns, and opinions — not
+just its API surface?
+
+## What's Different Here
+
+Typical MCP tools perform actions — query a database, call an API, read a file.
+Our tools generate code. When an AI assistant calls \`scaffold_port\` or
+\`scaffold_use_case\`, it doesn't hit any external service. It returns a code
+snippet that follows beebear's conventions — correct imports, correct structure,
+correct patterns. The AI assistant then uses that scaffold as a starting point.
+
+This turns MCP tools into opinionated code generators rather than service
+connectors. The assistant doesn't just *know* beebear's patterns — it can
+*produce* them on demand.
 
 ## What It Does
 
 AI assistants don't know beebear. They'll generate decorator-heavy code, skip
 \`Port<T>()\` tokens, put logic in adapters, and miss error mapping. This MCP server
-fixes that by providing:
+gives them beebear knowledge via:
 
 - **8 Resources** — Documentation on beebear's API, patterns, project structure,
   errors, HTTP adapters, decorators plugin, and DDD plugin
-- **10 Tools** — Code scaffold generators for ports, use cases, adapters, routes,
-  container setup, DDD building blocks, and decorator setup
+- **10 Tools** — Code scaffold generators that return correctly structured
+  beebear code for ports, use cases, adapters, routes, container setup, and more
 - **2 Prompts** — Guided workflows for creating new projects and adding features
 
 ## Usage
@@ -1354,7 +1705,7 @@ function renderMarkdown(md) {
       const isTree = !cb.lang && (escaped.includes('├') || escaped.includes('└'));
       const preClass = isTree ? ' class="tree"' : '';
       const dataLang = cb.lang ? ` data-lang="${cb.lang}"` : '';
-      html += `<pre${preClass}${dataLang}><code${langClass}>${escaped}</code></pre>`;
+      html += `<div class="code-block"><pre${preClass}${dataLang}><code${langClass}>${escaped}</code></pre><button class="copy-btn" aria-label="Copy"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>`;
       continue;
     }
 
@@ -1498,10 +1849,13 @@ document.addEventListener('DOMContentLoaded', () => {
       { key: 'errors', title: 'Error Handling' },
       { key: 'http-adapters', title: 'HTTP Adapters' },
     ]},
+    { label: 'AI Assistant', items: [
+      { key: 'skills', title: 'Skills', subtitle: 'copy & use' },
+      { key: 'mcp', title: 'MCP Server', subtitle: 'experimental' },
+    ]},
     { label: 'Plugins', items: [
-      { key: 'decorators', title: 'DI Decorators' },
       { key: 'ddd', title: 'DDD' },
-      { key: 'mcp', title: 'MCP Server' },
+      { key: 'decorators', title: 'DI Decorators' },
     ]},
   ];
 
@@ -1519,6 +1873,12 @@ document.addEventListener('DOMContentLoaded', () => {
       link.className = 'nav-link';
       link.dataset.doc = item.key;
       link.textContent = item.title;
+      if (item.subtitle) {
+        const sub = document.createElement('span');
+        sub.className = 'nav-link-subtitle';
+        sub.textContent = item.subtitle;
+        link.appendChild(sub);
+      }
       wrapper.appendChild(link);
 
       link.addEventListener('click', (e) => {
@@ -1547,7 +1907,12 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  let tocObserver = null;
+
   function populateToc(key) {
+    // Clean up previous observer
+    if (tocObserver) { tocObserver.disconnect(); tocObserver = null; }
+
     const headings = getHeadings(DOCS[key] || '');
     if (!headings.length) {
       tocBar.classList.remove('visible');
@@ -1559,6 +1924,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const a = document.createElement('a');
       a.className = 'toc-link';
       a.href = '#' + h.id;
+      a.dataset.headingId = h.id;
       a.textContent = h.text;
       a.addEventListener('click', (e) => {
         e.preventDefault();
@@ -1570,9 +1936,26 @@ document.addEventListener('DOMContentLoaded', () => {
       tocBar.appendChild(a);
     });
     tocBar.classList.add('visible');
+
+    // Observe headings for scroll-based active state
+    tocObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          tocBar.querySelectorAll('.toc-link').forEach(l => l.classList.remove('active'));
+          const match = tocBar.querySelector(`.toc-link[data-heading-id="${entry.target.id}"]`);
+          if (match) match.classList.add('active');
+        }
+      });
+    }, { rootMargin: '0px 0px -70% 0px', threshold: 0 });
+
+    headings.forEach(h => {
+      const el = document.getElementById(h.id);
+      if (el) tocObserver.observe(el);
+    });
   }
 
   function clearToc() {
+    if (tocObserver) { tocObserver.disconnect(); tocObserver = null; }
     tocBar.classList.remove('visible');
     tocBar.innerHTML = '';
   }
@@ -1632,6 +2015,14 @@ document.addEventListener('DOMContentLoaded', () => {
       content.innerHTML = renderMarkdown(md);
       content.querySelectorAll('pre code[class*="language-"]').forEach(el => {
         Prism.highlightElement(el);
+      });
+      content.querySelectorAll('.copy-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const code = btn.closest('.code-block').querySelector('code');
+          navigator.clipboard.writeText(code.textContent);
+          btn.classList.add('copied');
+          setTimeout(() => btn.classList.remove('copied'), 1500);
+        });
       });
       setActive(key);
       populateToc(key);
